@@ -678,6 +678,87 @@ void Copter::one_hz_loop()
 #if AC_CUSTOMCONTROL_MULTI_ENABLED == ENABLED
     custom_control.set_notch_sample_rate(AP::scheduler().get_filtered_loop_rate_hz());
 #endif
+
+    AP_HAL::UARTDriver *uart0 = hal.serial(0);
+    uart0 -> begin(9600);
+    uart0 -> set_flow_control(AP_HAL::UARTDriver::FLOW_CONTROL_ENABLE);
+    // uart_test();
+    mavlink_read_systime(uart0);
+    mavlink_send_IMU(uart0);
+}
+
+    //a uart program that tests the serial port
+void Copter::uart_test(AP_HAL::UARTDriver *uart){
+    if (uart != nullptr) {
+
+        // char msg[] = "hello";
+        // uart0 -> printf("%s\n", msg);
+
+        uint8_t buffer[256];
+        uint16_t buflen = uart -> read(buffer, sizeof(buffer));
+        if (buflen > 1 && buffer[0] == 0xFC) {  // Check if the message starts with 0xFC
+            uint8_t msg_len = buffer[1];  // Get the length of the message from the second byte
+            if (msg_len <= buflen - 2) {  // Check if the message length is valid
+                // Shift the rest of the message to the start of the buffer
+                for (uint16_t i = 0; i < msg_len; ++i) {
+                    buffer[i] = buffer[i+2];
+                }
+                buflen = msg_len;  // Set the length of the message
+            } else {
+                // If the message length is not valid, ignore the message
+                return;
+            }
+        } else {
+            // If the message does not start with 0xFC, ignore it
+            return;
+        }
+        buffer[buflen] = '\0';  // Null-terminate the message
+        uart -> write(buffer, buflen);  // Send the message back to the serial port
+    }   
+}
+
+bool Copter::mavlink_read_systime(AP_HAL::UARTDriver *uart) {
+    if(uart != nullptr){
+        mavlink_message_t msg;
+        mavlink_status_t status;
+        mavlink_system_time_t system_time;
+        system_time.time_boot_ms = 0;
+
+        while (uart->available() > 0) {
+            uint8_t c = uart->read();
+            if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
+                if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
+                    mavlink_msg_system_time_decode(&msg, &system_time);
+                    uart -> printf("MSGID: %d, Time Unix: %ld \n",msg.msgid,system_time.time_boot_ms);
+                }
+            }
+        }
+        //uart -> printf("Time Unix: %ld \n",system_time.time_boot_ms);       
+    }
+    return false;
+}
+
+void Copter::mavlink_send_IMU(AP_HAL::UARTDriver *uart) {
+    if (uart != nullptr) {
+        uint8_t buffer[256];
+        mavlink_message_t msg;
+
+        // Get IMU readings
+        Vector3f accel = ins.get_accel();
+        Vector3f gyro = ins.get_gyro();
+        Vector3f mag = compass.get_field();
+
+        // Pack the RAW_IMU message
+        mavlink_msg_highres_imu_pack(1, 0, &msg, AP_HAL::micros64(), 
+                                 accel.x, accel.y, accel.z, 
+                                 gyro.x, gyro.y, gyro.z, 
+                                 mag.x, mag.y, mag.z,
+                                 0, 0, 0, 0, 0, 0);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+        uart -> write(buffer, len);
+    }
 }
 
 void Copter::init_simple_bearing()

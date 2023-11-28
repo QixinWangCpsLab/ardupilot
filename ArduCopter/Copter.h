@@ -707,6 +707,9 @@ private:
     void twentyfive_hz_logging();
     void three_hz_loop();
     void one_hz_loop();
+    void uart_test(AP_HAL::UARTDriver *uart);
+    bool mavlink_read_systime(AP_HAL::UARTDriver *uart);
+    void mavlink_send_IMU(AP_HAL::UARTDriver *uart);
     void init_simple_bearing();
     void update_simple_mode(void);
     void update_super_simple_bearing(bool force_update);
