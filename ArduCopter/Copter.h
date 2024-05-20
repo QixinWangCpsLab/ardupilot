@@ -707,9 +707,16 @@ private:
     void twentyfive_hz_logging();
     void three_hz_loop();
     void one_hz_loop();
+
+    //functions for testing
+    void one_HZ_mavlink_test();
     void uart_test(AP_HAL::UARTDriver *uart);
-    bool mavlink_read_systime(AP_HAL::UARTDriver *uart);
-    void mavlink_send_IMU(AP_HAL::UARTDriver *uart);
+    void mavlink_send_SYSTIME(AP_HAL::UARTDriver *uart, uint8_t srcSystemID, uint8_t srcComponentID);
+    void mavlink_read_systime(AP_HAL::UARTDriver *uart0, AP_HAL::UARTDriver *uart1);
+    void mavlink_send_HIGHRES_IMU(AP_HAL::UARTDriver *uart, uint8_t srcSystemID, uint8_t srcComponentID);
+    void mavlink_request_system_time(AP_HAL::UARTDriver *uart, uint8_t target_sysid, uint8_t target_compid);
+    uint8_t mavlink_get_heartbeat_onboardComp(AP_HAL::UARTDriver *uart0);
+
     void init_simple_bearing();
     void update_simple_mode(void);
     void update_super_simple_bearing(bool force_update);

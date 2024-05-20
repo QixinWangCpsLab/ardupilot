@@ -85,6 +85,9 @@ const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 #define SCHED_TASK(func, _interval_ticks, _max_time_micros, _prio) SCHED_TASK_CLASS(Copter, &copter, func, _interval_ticks, _max_time_micros, _prio)
 #define FAST_TASK(func) FAST_TASK_CLASS(Copter, &copter, func)
 
+
+#include "testing.h"
+
 /*
   scheduler table - all tasks should be listed here.
 
@@ -679,15 +682,189 @@ void Copter::one_hz_loop()
     custom_control.set_notch_sample_rate(AP::scheduler().get_filtered_loop_rate_hz());
 #endif
 
-    AP_HAL::UARTDriver *uart0 = hal.serial(0);
-    uart0 -> begin(9600);
-    uart0 -> set_flow_control(AP_HAL::UARTDriver::FLOW_CONTROL_ENABLE);
-    // uart_test();
-    mavlink_read_systime(uart0);
-    mavlink_send_IMU(uart0);
+#if TEST==ENABLED
+    one_HZ_mavlink_test();
+#endif
 }
 
-    //a uart program that tests the serial port
+void Copter::one_HZ_mavlink_test(){
+
+#if TEST2 == ENABLED || TEST3 == ENABLED
+    AP_HAL::UARTDriver *uart0 = hal.serial(0);
+#endif
+
+#if TEST6 == ENABLED || TEST7 == ENABLED
+    AP_HAL::UARTDriver *uart1 = hal.serial(1);
+#endif
+
+#if OTHER_TEST == ENABLED
+    int8_t serial1_protocol;
+    AP_Param::get_default_value("SERIAL1_PROTOCOL", serial1_protocol);
+    if(AP_Param::set_default_by_name("SERIAL1_PROTOCOL", -1))
+         uart0 -> printf("SERIAL1_PROTOCOL set to -1 \n");
+#endif
+
+#if TEST1 == ENABLED
+    //1. RPI requests data from the Pixhawk.
+#endif
+
+#if TEST2 == ENABLED
+    //2. Pixhawk sends the data to the RPI.
+    mavlink_send_SYSTIME(uart0,155,0);
+    mavlink_send_HIGHRES_IMU(uart0,155,0);
+#endif
+
+#if TEST3 == ENABLED
+    //3. Pixhawk requests data from the RPI, and RPI replies.
+    //see GCS_Common.cpp
+    mavlink_request_system_time(uart0, 20, 0);
+#endif
+    
+#if TEST4 == ENABLED
+    //4. RPI sends data to the Pixhawk.
+    //see GCS_Common.cpp
+#endif
+
+#if TEST5 == ENABLED
+    //5. GCS requests data from the Pixhawk.
+#endif
+
+#if TEST6 == ENABLED
+    //6. Pixhawk sends the data to the GCS.
+    mavlink_send_SYSTIME(uart1,155,0);
+    mavlink_send_HIGHRES_IMU(uart1,155,0);
+#endif
+
+#if TEST7 == ENABLED
+    //7. Pixhawk requests data from the GCS, and GCS replies.
+    //see GCS_Common.cpp
+    mavlink_request_system_time(uart1, 20, 0);
+#endif
+    
+#if TEST8 == ENABLED
+    //8. GCS sends data to the Pixhawk.
+    //see GCS_Common.cpp
+#endif
+
+#if OTHER_TEST == ENABLED
+    uart_test();
+    //To test different source system IDs
+    // mavlink_send_IMU(uart1,255,0);
+
+    //To test different target system IDs
+    // mavlink_request_system_time(uart1, 2, 0);
+
+    //To get the system ID of the onboard computer
+    // uint8_t onboard_comp_sysid = mavlink_get_heartbeat_onboardComp(uart0);
+    // uart0 -> printf("%d\n",onboard_comp_sysid);
+#endif
+}
+
+#if TEST2 == ENABLED || TEST6 == ENABLED
+void Copter::mavlink_send_SYSTIME(AP_HAL::UARTDriver *uart, uint8_t srcSystemID, uint8_t srcComponentID){
+    // Get the current system time
+    uint64_t time_unix_usec = AP_HAL::micros64(); // The time in microseconds since Unix epoch
+    uint32_t time_boot_ms = AP_HAL::millis(); // The time in milliseconds since system boot
+
+    // Create a MAVLink message
+    mavlink_message_t msg;
+
+    // Pack the message
+    mavlink_msg_system_time_pack(srcSystemID, srcComponentID, &msg, time_unix_usec, time_boot_ms);
+
+    // Send the message
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    uart->write(buffer, len);
+}
+
+//send the IMU message via mavlink
+void Copter::mavlink_send_HIGHRES_IMU(AP_HAL::UARTDriver *uart, uint8_t srcSystemID, uint8_t srcComponentID) {
+    if (uart != nullptr) {
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        mavlink_message_t msg;
+
+        // Get IMU readings
+        Vector3f accel = ins.get_accel();
+        Vector3f gyro = ins.get_gyro();
+        Vector3f mag = compass.get_field();
+
+        // Pack the HIGHRES_IMU message
+        // mavlink_msg_highres_imu_pack(1, 0, &msg, AP_HAL::micros64(), 
+        //                          accel.x, accel.y, accel.z, 
+        //                          gyro.x, gyro.y, gyro.z, 
+        //                          mag.x, mag.y, mag.z,
+        //                          0, 0, 0, 0, 0, 0);
+        mavlink_msg_highres_imu_pack(srcSystemID, srcComponentID, &msg, AP_HAL::micros64(), 
+                                 accel.x, accel.y, accel.z, 
+                                 gyro.x, gyro.y, gyro.z, 
+                                 mag.x, mag.y, mag.z,
+                                 0, 0, 0, 0, 0, 0);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+        uart -> write(buffer, len);
+    }
+}
+#endif
+
+#if TEST3 == ENABLED || TEST7 == ENABLED
+//send the system time message via mavlink via command_long message type
+void Copter::mavlink_request_system_time(AP_HAL::UARTDriver *uart, uint8_t target_sysid, uint8_t target_compid) {
+    if (uart != nullptr) {
+        uint8_t buffer[256];
+        mavlink_message_t msg;
+
+        // Pack the REQUEST_MESSAGE message
+        mavlink_msg_command_long_pack(
+        1, 
+        0, 
+        &msg, 
+        target_sysid, 
+        target_compid, 
+        MAV_CMD_REQUEST_MESSAGE, 
+        0, 
+        MAVLINK_MSG_ID_SYSTEM_TIME, 
+        0, 0, 0, 0, 0, 0);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+        uart->write(buffer, len);
+    }
+}
+#endif
+
+#if OTHER_TEST == ENABLED
+//read the system time message via mavlink from uart0, and send the result back to another port uart1
+void Copter::mavlink_read_systime(AP_HAL::UARTDriver *uart0, AP_HAL::UARTDriver *uart1) {
+    if(uart0 != nullptr){
+        mavlink_message_t msg;
+        mavlink_status_t status;
+        mavlink_system_time_t system_time;
+        system_time.time_boot_ms = 0;
+
+        while (uart0->available() > 0) {
+            uart1->printf("Reading from uart \n");
+            uint8_t c = uart0->read();
+            if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
+                uart1->printf("MSGID: %d \n",msg.msgid);
+                if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
+                    mavlink_msg_system_time_decode(&msg, &system_time);
+                    uart1 -> printf("Time message received\n");
+                }
+            }
+        }
+        if(uart0->available() == 0)
+            uart1 -> printf("No data available \n");
+        if(system_time.time_boot_ms != 0)
+            uart1-> printf("Time message received! \n");       
+    }
+    else{
+        uart1->printf("uart is null \n");
+    }
+}
+
+//a uart program that tests the serial port
 void Copter::uart_test(AP_HAL::UARTDriver *uart){
     if (uart != nullptr) {
 
@@ -717,49 +894,28 @@ void Copter::uart_test(AP_HAL::UARTDriver *uart){
     }   
 }
 
-bool Copter::mavlink_read_systime(AP_HAL::UARTDriver *uart) {
-    if(uart != nullptr){
-        mavlink_message_t msg;
-        mavlink_status_t status;
-        mavlink_system_time_t system_time;
-        system_time.time_boot_ms = 0;
-
-        while (uart->available() > 0) {
-            uint8_t c = uart->read();
-            if (mavlink_parse_char(MAVLINK_COMM_0, c, &msg, &status)) {
-                if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
-                    mavlink_msg_system_time_decode(&msg, &system_time);
-                    uart -> printf("MSGID: %d, Time Unix: %ld \n",msg.msgid,system_time.time_boot_ms);
+//return the systemID if getting the heartbeat from onboard computer (RPI)
+uint8_t Copter::mavlink_get_heartbeat_onboardComp(AP_HAL::UARTDriver *uart0) {
+    mavlink_message_t msg;
+    mavlink_status_t status;
+    mavlink_heartbeat_t heartbeat;
+    if(uart0 != nullptr){
+        while (uart0->available() > 0) {
+            uint8_t c = uart0->read();
+            if (mavlink_parse_char(MAVLINK_COMM_1, c, &msg, &status)) {
+                uart0->printf("SystemID: %d \n",msg.sysid);
+                if (msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+                    mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+                    if(heartbeat.type == MAV_TYPE_ONBOARD_CONTROLLER){
+                        return msg.sysid;
+                    }
                 }
             }
-        }
-        //uart -> printf("Time Unix: %ld \n",system_time.time_boot_ms);       
+        }   
     }
-    return false;
+    return 0;
 }
-
-void Copter::mavlink_send_IMU(AP_HAL::UARTDriver *uart) {
-    if (uart != nullptr) {
-        uint8_t buffer[256];
-        mavlink_message_t msg;
-
-        // Get IMU readings
-        Vector3f accel = ins.get_accel();
-        Vector3f gyro = ins.get_gyro();
-        Vector3f mag = compass.get_field();
-
-        // Pack the RAW_IMU message
-        mavlink_msg_highres_imu_pack(1, 0, &msg, AP_HAL::micros64(), 
-                                 accel.x, accel.y, accel.z, 
-                                 gyro.x, gyro.y, gyro.z, 
-                                 mag.x, mag.y, mag.z,
-                                 0, 0, 0, 0, 0, 0);
-
-        // Send the message
-        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
-        uart -> write(buffer, len);
-    }
-}
+#endif
 
 void Copter::init_simple_bearing()
 {

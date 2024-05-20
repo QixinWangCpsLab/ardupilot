@@ -100,6 +100,8 @@ extern AP_IOMCU iomcu;
 
 #include <ctype.h>
 
+#include "testing.h"
+
 extern const AP_HAL::HAL& hal;
 
 struct GCS_MAVLINK::LastRadioStatus GCS_MAVLINK::last_radio_status;
@@ -1712,6 +1714,55 @@ void GCS_MAVLINK::send_message(enum ap_message id)
 void GCS_MAVLINK::packetReceived(const mavlink_status_t &status,
                                  const mavlink_message_t &msg)
 {
+
+#if TEST3 == ENABLED
+    //try to handle a system time message
+    if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
+        // handle system time message via uart0 (USB)
+        mavlink_system_time_t system_time;
+        mavlink_msg_system_time_decode(&msg, &system_time);
+        AP_HAL::UARTDriver *uart0 = hal.serial(0);
+        uart0 -> printf("System Time received %ld from system %d\n",system_time.time_boot_ms, msg.sysid);
+
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        mavlink_message_t message;
+
+        // Pack the SYSTEM_TIME message using system ID 150
+        mavlink_msg_system_time_pack(
+            155, 0, &message,
+            system_time.time_boot_ms,
+            system_time.time_unix_usec);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &message);
+        uart0 -> write(buffer, len);
+    }
+#endif
+
+#if TEST7 == ENABLED
+    if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
+        //handle system time message via uart1 (Telemetry 1)
+        mavlink_system_time_t system_time;
+        mavlink_msg_system_time_decode(&msg, &system_time);
+        AP_HAL::UARTDriver *uart1 = hal.serial(1);
+        uart1 -> printf("System Time received %ld from system %d\n",system_time.time_boot_ms, msg.sysid);
+
+        // send the system time back as a MAVLink packet
+        uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+        mavlink_message_t message;
+
+        // Pack the SYSTEM_TIME message
+        mavlink_msg_system_time_pack(
+            155, 0, &message,
+            system_time.time_boot_ms,
+            system_time.time_unix_usec);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &message);
+        uart1 -> write(buffer, len);
+    }
+#endif
+
     // we exclude radio packets because we historically used this to
     // make it possible to use the CLI over the radio
     if (msg.msgid != MAVLINK_MSG_ID_RADIO && msg.msgid != MAVLINK_MSG_ID_RADIO_STATUS) {
@@ -4096,7 +4147,7 @@ void GCS_MAVLINK::handle_common_message(const mavlink_message_t &msg)
 #if AP_RTC_ENABLED
     case MAVLINK_MSG_ID_SYSTEM_TIME:
         handle_system_time_message(msg);
-        break;
+        break;  
 #endif
 
     case MAVLINK_MSG_ID_RC_CHANNELS_OVERRIDE:
@@ -5015,6 +5066,53 @@ MAV_RESULT GCS_MAVLINK::handle_command_storage_format(const mavlink_command_int_
 MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &packet, const mavlink_message_t &msg)
 {
     switch (packet.command) {
+
+#if TEST4 == ENABLED
+    case 32001:{
+        ///////////////////////////////////////////////////////////////////////////////
+        //This is a command for testing
+        //RPI pushes command info to Pixhawk
+        AP_HAL::UARTDriver *uart0 = hal.serial(0);
+        uart0 -> printf("Customized Command Int Message Received with parameters: %f, %f, %f, %f, %ld, %ld, %f\n", 
+        packet.param1, packet.param2, packet.param3, packet.param4, packet.x, packet.y, packet.z);
+        
+        uint8_t buffer[256];
+        mavlink_message_t message;
+
+        // Pack the REQUEST_MESSAGE message
+        mavlink_msg_command_long_pack(
+                                    1, 
+                                    0, 
+                                    &message, 
+                                    msg.sysid, 
+                                    msg.compid,
+                                    32001, 
+                                    0, 
+                                    packet.param1, 
+                                    packet.param2, 
+                                    packet.param3, 
+                                    packet.param4, 
+                                    packet.x, 
+                                    packet.y, 
+                                    packet.z);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+        uart0 -> write(buffer, len);
+        return MAV_RESULT_ACCEPTED;
+    }
+#endif
+
+#if TEST8 == ENABLED
+    case 32001:{
+        // GCS pushes command info to Pixhawk
+        AP_HAL::UARTDriver *uart1 = hal.serial(1);
+        uart1 -> printf("Customized Command Int Message Received with parameters: %f, %f, %f, %f, %ld, %ld, %f\n", 
+        packet.param1, packet.param2, packet.param3, packet.param4, packet.x, packet.y, packet.z);
+        
+        return MAV_RESULT_ACCEPTED;  
+    }
+#endif
 
 #if HAL_INS_ACCELCAL_ENABLED
     case MAV_CMD_ACCELCAL_VEHICLE_POS:
