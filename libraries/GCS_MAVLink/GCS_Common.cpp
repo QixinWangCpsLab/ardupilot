@@ -100,7 +100,7 @@ extern AP_IOMCU iomcu;
 
 #include <ctype.h>
 
-#include "testing.h"
+#include "MAVLink_Test_Settings.h"
 
 extern const AP_HAL::HAL& hal;
 
@@ -1715,7 +1715,7 @@ void GCS_MAVLINK::packetReceived(const mavlink_status_t &status,
                                  const mavlink_message_t &msg)
 {
 
-#if TEST3 == ENABLED
+#if TEST == 3
     //try to handle a system time message
     if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
         // handle system time message via uart0 (USB)
@@ -1739,7 +1739,7 @@ void GCS_MAVLINK::packetReceived(const mavlink_status_t &status,
     }
 #endif
 
-#if TEST7 == ENABLED
+#if TEST == 7
     if (msg.msgid == MAVLINK_MSG_ID_SYSTEM_TIME) {
         //handle system time message via uart1 (Telemetry 1)
         mavlink_system_time_t system_time;
@@ -5067,7 +5067,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &p
 {
     switch (packet.command) {
 
-#if TEST4 == ENABLED
+#if TEST == 4
     case 32001:{
         ///////////////////////////////////////////////////////////////////////////////
         //This is a command for testing
@@ -5103,7 +5103,7 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &p
     }
 #endif
 
-#if TEST8 == ENABLED
+#if TEST == 8
     case 32001:{
         // GCS pushes command info to Pixhawk
         AP_HAL::UARTDriver *uart1 = hal.serial(1);

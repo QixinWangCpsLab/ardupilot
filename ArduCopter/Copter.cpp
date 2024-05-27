@@ -86,7 +86,7 @@ const AP_HAL::HAL& hal = AP_HAL::get_HAL();
 #define FAST_TASK(func) FAST_TASK_CLASS(Copter, &copter, func)
 
 
-#include "testing.h"
+#include "MAVLink_Test_Settings.h"
 
 /*
   scheduler table - all tasks should be listed here.
@@ -682,71 +682,69 @@ void Copter::one_hz_loop()
     custom_control.set_notch_sample_rate(AP::scheduler().get_filtered_loop_rate_hz());
 #endif
 
-#if TEST==ENABLED
     one_HZ_mavlink_test();
-#endif
 }
 
 void Copter::one_HZ_mavlink_test(){
 
-#if TEST2 == ENABLED || TEST3 == ENABLED
+#if TEST == 2 || TEST == 3
     AP_HAL::UARTDriver *uart0 = hal.serial(0);
 #endif
 
-#if TEST6 == ENABLED || TEST7 == ENABLED
+#if TEST == 6 || TEST == 7
     AP_HAL::UARTDriver *uart1 = hal.serial(1);
 #endif
 
-#if OTHER_TEST == ENABLED
+#if TEST == -1
     int8_t serial1_protocol;
     AP_Param::get_default_value("SERIAL1_PROTOCOL", serial1_protocol);
     if(AP_Param::set_default_by_name("SERIAL1_PROTOCOL", -1))
          uart0 -> printf("SERIAL1_PROTOCOL set to -1 \n");
 #endif
 
-#if TEST1 == ENABLED
+#if TEST == 1
     //1. RPI requests data from the Pixhawk.
 #endif
 
-#if TEST2 == ENABLED
+#if TEST == 2
     //2. Pixhawk sends the data to the RPI.
     mavlink_send_SYSTIME(uart0,155,0);
     mavlink_send_HIGHRES_IMU(uart0,155,0);
 #endif
 
-#if TEST3 == ENABLED
+#if TEST == 3
     //3. Pixhawk requests data from the RPI, and RPI replies.
     //see GCS_Common.cpp
     mavlink_request_system_time(uart0, 20, 0);
 #endif
     
-#if TEST4 == ENABLED
+#if TEST == 4
     //4. RPI sends data to the Pixhawk.
     //see GCS_Common.cpp
 #endif
 
-#if TEST5 == ENABLED
+#if TEST == 5
     //5. GCS requests data from the Pixhawk.
 #endif
 
-#if TEST6 == ENABLED
+#if TEST == 6
     //6. Pixhawk sends the data to the GCS.
     mavlink_send_SYSTIME(uart1,155,0);
     mavlink_send_HIGHRES_IMU(uart1,155,0);
 #endif
 
-#if TEST7 == ENABLED
+#if TEST == 7
     //7. Pixhawk requests data from the GCS, and GCS replies.
     //see GCS_Common.cpp
     mavlink_request_system_time(uart1, 20, 0);
 #endif
     
-#if TEST8 == ENABLED
+#if TEST == 8
     //8. GCS sends data to the Pixhawk.
     //see GCS_Common.cpp
 #endif
 
-#if OTHER_TEST == ENABLED
+#if TEST == -1
     uart_test();
     //To test different source system IDs
     // mavlink_send_IMU(uart1,255,0);
@@ -760,7 +758,7 @@ void Copter::one_HZ_mavlink_test(){
 #endif
 }
 
-#if TEST2 == ENABLED || TEST6 == ENABLED
+#if TEST ==2 || TEST ==6
 void Copter::mavlink_send_SYSTIME(AP_HAL::UARTDriver *uart, uint8_t srcSystemID, uint8_t srcComponentID){
     // Get the current system time
     uint64_t time_unix_usec = AP_HAL::micros64(); // The time in microseconds since Unix epoch
@@ -808,7 +806,7 @@ void Copter::mavlink_send_HIGHRES_IMU(AP_HAL::UARTDriver *uart, uint8_t srcSyste
 }
 #endif
 
-#if TEST3 == ENABLED || TEST7 == ENABLED
+#if TEST == 3 || TEST == 7
 //send the system time message via mavlink via command_long message type
 void Copter::mavlink_request_system_time(AP_HAL::UARTDriver *uart, uint8_t target_sysid, uint8_t target_compid) {
     if (uart != nullptr) {
@@ -834,7 +832,7 @@ void Copter::mavlink_request_system_time(AP_HAL::UARTDriver *uart, uint8_t targe
 }
 #endif
 
-#if OTHER_TEST == ENABLED
+#if TEST == -1
 //read the system time message via mavlink from uart0, and send the result back to another port uart1
 void Copter::mavlink_read_systime(AP_HAL::UARTDriver *uart0, AP_HAL::UARTDriver *uart1) {
     if(uart0 != nullptr){
