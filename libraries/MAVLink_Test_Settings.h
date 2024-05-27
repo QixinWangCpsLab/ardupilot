@@ -1,7 +1,7 @@
 // Description: This file is used to enable and disable tests in the ArduCopter,GCS_MAVLINK code.
 
 // Test: Enable and disable tests in the ArduCopter,GCS_MAVLINK code. (This should always be ENABLED)
-#define TEST 2
+#define TEST 1
 
 
 // Test1: RPI requests data from the Pixhawk.
@@ -14,7 +14,7 @@
 // #define TEST3 DISABLED
 
 // Test4: RPI sends data to the Pixhawk.
-// #define TEST4 ENABLED
+// #define TEST4 DISABLED
 
 // Test5: GCS requests data from the Pixhawk.
 // #define TEST5 DISABLED

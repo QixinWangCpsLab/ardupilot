@@ -5110,6 +5110,30 @@ MAV_RESULT GCS_MAVLINK::handle_command_int_packet(const mavlink_command_int_t &p
         uart1 -> printf("Customized Command Int Message Received with parameters: %f, %f, %f, %f, %ld, %ld, %f\n", 
         packet.param1, packet.param2, packet.param3, packet.param4, packet.x, packet.y, packet.z);
         
+        uint8_t buffer[256];
+        mavlink_message_t message;
+
+        // Pack the REQUEST_MESSAGE message
+        mavlink_msg_command_long_pack(
+                                    1, 
+                                    0, 
+                                    &message, 
+                                    msg.sysid, 
+                                    msg.compid,
+                                    32001, 
+                                    0, 
+                                    packet.param1, 
+                                    packet.param2, 
+                                    packet.param3, 
+                                    packet.param4, 
+                                    packet.x, 
+                                    packet.y, 
+                                    packet.z);
+
+        // Send the message
+        uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+        uart1 -> write(buffer, len);
+
         return MAV_RESULT_ACCEPTED;  
     }
 #endif
