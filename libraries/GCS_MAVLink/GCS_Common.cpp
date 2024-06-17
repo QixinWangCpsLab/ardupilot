@@ -1727,7 +1727,7 @@ void GCS_MAVLINK::packetReceived(const mavlink_status_t &status,
         uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
         mavlink_message_t message;
 
-        // Pack the SYSTEM_TIME message using system ID 150
+        // Pack the SYSTEM_TIME message using system ID 155
         mavlink_msg_system_time_pack(
             155, 0, &message,
             system_time.time_boot_ms,
